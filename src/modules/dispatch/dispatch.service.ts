@@ -1,0 +1,212 @@
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { InjectDataSource } from '@nestjs/typeorm';
+import { DataSource, EntityManager } from 'typeorm';
+import { DocSequenceService } from '../doc-sequence/doc-sequence.service';
+import { Shipment } from './shipment.entity';
+import { PackingLine } from './packing-line.entity';
+import { EwayBill } from './eway-bill.entity';
+import { CreateShipmentDto, DispatchShipmentDto, EwayBillDto } from './dto';
+
+interface Scope {
+  plantId: string;
+  userId: string;
+}
+
+const EWB_THRESHOLD = 50000; // ₹ — e-way bill required above this consignment value
+
+@Injectable()
+export class DispatchService {
+  constructor(
+    @InjectDataSource() private readonly db: DataSource,
+    private readonly docSeq: DocSequenceService,
+  ) {}
+
+  /** Create a shipment against an SO (SM-162). Gated on QC: open critical NCRs
+   *  pegged to the lines, and failed final inspections, both block dispatch. */
+  async create(s: Scope, dto: CreateShipmentDto): Promise<Shipment> {
+    const id = await this.db.transaction(async (em) => {
+      const so = (await em.query(`SELECT id FROM sales_order WHERE id = $1 AND plant_id = $2`, [dto.salesOrderId, s.plantId])) as Array<{ id: string }>;
+      if (!so[0]) throw new NotFoundException('Sales order not found');
+
+      const soLineIds = dto.lines.map((l) => l.soLineId);
+      const lines = (await em.query(`SELECT id, qty FROM so_line WHERE id = ANY($1) AND sales_order_id = $2`, [soLineIds, dto.salesOrderId])) as Array<{ id: string; qty: string }>;
+      if (lines.length !== new Set(soLineIds).size) throw new BadRequestException('Some lines do not belong to this sales order');
+      const lineQty = new Map(lines.map((l) => [l.id, Number(l.qty)]));
+
+      await this.assertQcClear(em, s.plantId, soLineIds);
+
+      // over-ship guard (partial shipments allowed)
+      const shipped = (await em.query(`SELECT so_line_id, COALESCE(SUM(qty), 0) AS q FROM packing_line WHERE so_line_id = ANY($1) GROUP BY so_line_id`, [soLineIds])) as Array<{ so_line_id: string; q: string }>;
+      const already = new Map(shipped.map((r) => [r.so_line_id, Number(r.q)]));
+      for (const l of dto.lines) {
+        if (already.get(l.soLineId) ?? 0) { /* keep accumulating below */ }
+        if ((already.get(l.soLineId) ?? 0) + l.qty > (lineQty.get(l.soLineId) ?? 0) + 1e-9) {
+          throw new BadRequestException(`SO line ${l.soLineId}: shipping ${l.qty} exceeds remaining quantity`);
+        }
+      }
+
+      const number = await this.docSeq.allocate(s.plantId, 'DC', em);
+      const shipment = em.create(Shipment, {
+        plantId: s.plantId,
+        number,
+        salesOrderId: dto.salesOrderId,
+        status: 'draft',
+        dispatchDate: dto.dispatchDate,
+        carrier: dto.carrier,
+        totalWeightKg: dto.lines.reduce((a, l) => a + (l.weightKg ?? 0), 0) || undefined,
+      });
+      await em.save(shipment);
+      await em.save(dto.lines.map((l) => em.create(PackingLine, { shipmentId: shipment.id, soLineId: l.soLineId, qty: l.qty, boxNo: l.boxNo, weightKg: l.weightKg })));
+      return shipment.id;
+    });
+    return this.findOne(s.plantId, id);
+  }
+
+  async pack(s: Scope, id: string): Promise<Shipment> {
+    const repo = this.db.getRepository(Shipment);
+    const shipment = await repo.findOne({ where: { id, plantId: s.plantId }, relations: { lines: true } });
+    if (!shipment) throw new NotFoundException('Shipment not found');
+    if (shipment.status !== 'draft') throw new BadRequestException(`Shipment is '${shipment.status}', expected 'draft'`);
+    shipment.status = 'packed';
+    shipment.totalWeightKg = shipment.lines.reduce((a, l) => a + Number(l.weightKg ?? 0), 0) || undefined;
+    await repo.save(shipment);
+    return this.findOne(s.plantId, id);
+  }
+
+  /** Dispatch (SM-162): mark dispatched, flip fully-shipped SO lines + order. */
+  async dispatch(s: Scope, id: string, dto: DispatchShipmentDto): Promise<Shipment> {
+    await this.db.transaction(async (em) => {
+      const shipment = await em.getRepository(Shipment).findOne({ where: { id, plantId: s.plantId }, relations: { lines: true } });
+      if (!shipment) throw new NotFoundException('Shipment not found');
+      if (shipment.status !== 'packed') throw new BadRequestException(`Shipment is '${shipment.status}', expected 'packed'`);
+
+      shipment.status = 'dispatched';
+      shipment.dispatchDate = dto.dispatchDate ?? new Date().toISOString().slice(0, 10);
+      if (dto.carrier) shipment.carrier = dto.carrier;
+      if (dto.trackingNo) shipment.trackingNo = dto.trackingNo;
+      if (dto.freightCost != null) shipment.freightCost = dto.freightCost;
+      await em.save(shipment);
+
+      const soLineIds = shipment.lines.map((l) => l.soLineId);
+      // fully-shipped lines -> dispatched
+      await em.query(
+        `UPDATE so_line sl SET status = 'dispatched'
+          WHERE sl.id = ANY($1) AND sl.status NOT IN ('dispatched', 'closed')
+            AND (SELECT COALESCE(SUM(qty), 0) FROM packing_line WHERE so_line_id = sl.id) >= sl.qty`,
+        [soLineIds],
+      );
+      // order dispatched once no open lines remain
+      await em.query(
+        `UPDATE sales_order SET status = 'dispatched', updated_by = $2
+          WHERE id = $1 AND status NOT IN ('dispatched', 'invoiced', 'closed', 'cancelled')
+            AND NOT EXISTS (SELECT 1 FROM so_line WHERE sales_order_id = $1 AND status NOT IN ('dispatched', 'closed'))`,
+        [shipment.salesOrderId, s.userId],
+      );
+    });
+    return this.findOne(s.plantId, id);
+  }
+
+  list(plantId: string, filter: { status?: string; salesOrderId?: string }): Promise<Shipment[]> {
+    const where: Record<string, unknown> = { plantId };
+    if (filter.status) where.status = filter.status;
+    if (filter.salesOrderId) where.salesOrderId = filter.salesOrderId;
+    return this.db.getRepository(Shipment).find({ where, order: { createdAt: 'DESC' }, take: 200 });
+  }
+
+  async findOne(plantId: string, id: string): Promise<Shipment> {
+    const shipment = await this.db.getRepository(Shipment).findOne({ where: { id, plantId }, relations: { lines: true } });
+    if (!shipment) throw new NotFoundException('Shipment not found');
+    return shipment;
+  }
+
+  /** Printable delivery challan (SM-162). */
+  async challan(plantId: string, id: string) {
+    const s = (await this.db.query(
+      `SELECT sh.number, sh.dispatch_date, sh.carrier, sh.total_weight_kg, so.number AS so_number,
+              c.name AS customer, c.gstin AS customer_gstin
+         FROM shipment sh JOIN sales_order so ON so.id = sh.sales_order_id JOIN customer c ON c.id = so.customer_id
+        WHERE sh.id = $1 AND sh.plant_id = $2`,
+      [id, plantId],
+    )) as Array<any>;
+    if (!s[0]) throw new NotFoundException('Shipment not found');
+    const lines = await this.db.query(
+      `SELECT pl.qty, pl.box_no, pl.weight_kg, sl.part_name FROM packing_line pl JOIN so_line sl ON sl.id = pl.so_line_id WHERE pl.shipment_id = $1`,
+      [id],
+    );
+    return {
+      challanNo: s[0].number,
+      date: s[0].dispatch_date,
+      salesOrder: s[0].so_number,
+      customer: { name: s[0].customer, gstin: s[0].customer_gstin },
+      carrier: s[0].carrier,
+      totalWeightKg: s[0].total_weight_kg,
+      lines,
+    };
+  }
+
+  /** Generate an e-way bill payload for a shipment above threshold (SM-163). */
+  async generateEwayBill(s: Scope, id: string, dto: EwayBillDto): Promise<EwayBill> {
+    if (dto.value <= EWB_THRESHOLD) {
+      throw new BadRequestException(`Consignment value ₹${dto.value} is at/below the ₹${EWB_THRESHOLD} e-way bill threshold`);
+    }
+    return this.db.transaction(async (em) => {
+      const rows = (await em.query(
+        `SELECT sh.number, sh.dispatch_date, p.gstin AS from_gstin, p.state_code AS from_state,
+                c.gstin AS to_gstin, c.state_code AS to_state
+           FROM shipment sh
+           JOIN plant p ON p.id = sh.plant_id
+           JOIN sales_order so ON so.id = sh.sales_order_id
+           JOIN customer c ON c.id = so.customer_id
+          WHERE sh.id = $1 AND sh.plant_id = $2`,
+        [id, s.plantId],
+      )) as Array<any>;
+      if (!rows[0]) throw new NotFoundException('Shipment not found');
+      const r = rows[0];
+
+      const payload = {
+        supplyType: 'O',
+        subSupplyType: '1',
+        docType: 'CHL',
+        docNo: r.number,
+        docDate: r.dispatch_date,
+        fromGstin: r.from_gstin,
+        fromStateCode: r.from_state,
+        toGstin: r.to_gstin,
+        toStateCode: r.to_state,
+        totalValue: dto.value,
+        transDistance: String(dto.distanceKm),
+        vehicleNo: dto.vehicleNo,
+        vehicleType: 'R',
+      };
+      const ewbNumber = String(Math.floor(1e11 + Math.random() * 9e11)); // 12-digit stub
+      const bill = em.create(EwayBill, { shipmentId: id, ewbNumber, value: dto.value, distanceKm: dto.distanceKm, vehicleNo: dto.vehicleNo, payload, generatedAt: new Date() });
+      return em.save(bill);
+    });
+  }
+
+  async getEwayBill(plantId: string, id: string): Promise<EwayBill> {
+    await this.findOne(plantId, id); // ensure shipment in plant
+    const bill = await this.db.getRepository(EwayBill).findOne({ where: { shipmentId: id } });
+    if (!bill) throw new NotFoundException('No e-way bill generated for this shipment');
+    return bill;
+  }
+
+  // --- QC gate -----------------------------------------------------------
+  private async assertQcClear(em: EntityManager, plantId: string, soLineIds: string[]): Promise<void> {
+    const ncr = (await em.query(
+      `SELECT n.number FROM ncr n JOIN work_order wo ON wo.id = n.work_order_id
+        WHERE n.plant_id = $1 AND n.status = 'open' AND n.is_critical = true AND wo.so_line_id = ANY($2) LIMIT 1`,
+      [plantId, soLineIds],
+    )) as Array<{ number: string }>;
+    if (ncr[0]) throw new BadRequestException(`Open critical NCR ${ncr[0].number} blocks dispatch`);
+
+    const failed = (await em.query(
+      `SELECT so_line_id FROM inspection
+        WHERE plant_id = $1 AND kind = 'final' AND so_line_id = ANY($2)
+        GROUP BY so_line_id
+       HAVING bool_or(result = 'fail') AND NOT bool_or(result = 'pass')`,
+      [plantId, soLineIds],
+    )) as Array<{ so_line_id: string }>;
+    if (failed.length) throw new BadRequestException(`SO line ${failed[0].so_line_id} failed final inspection`);
+  }
+}
