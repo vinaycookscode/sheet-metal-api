@@ -31,6 +31,12 @@ export class InvoiceController {
     return this.service.findOne(u.plantId as string, id);
   }
 
+  @Get(':id/document')
+  @RequirePermission('invoice.read')
+  document(@CurrentUser() u: AuthUser, @Param('id') id: string) {
+    return this.service.document(u.plantId as string, id);
+  }
+
   @Post()
   @RequirePermission('invoice.write')
   create(@CurrentUser() u: AuthUser, @Body() dto: CreateInvoiceDto) {

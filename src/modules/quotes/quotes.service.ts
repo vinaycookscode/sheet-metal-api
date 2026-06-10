@@ -45,11 +45,16 @@ export class QuotesService {
             `SELECT id, part_name, qty, target_price FROM inquiry_line WHERE inquiry_id = $1 ORDER BY line_no`,
             [dto.inquiryId],
           )) as Array<{ id: string; part_name: string; qty: string; target_price: string | null }>;
+          // Default each derived line to the org's primary HSN/GST tax code so the
+          // downstream sales order & tax invoice carry a real GST rate (overridable).
+          const defTax = (await em.query(`SELECT id FROM tax_code ORDER BY hsn_sac LIMIT 1`)) as Array<{ id: string }>;
+          const defaultTaxCodeId = defTax[0]?.id;
           lines = il.map((r) => ({
             partName: r.part_name,
             primaryQty: Number(r.qty),
             unitPrice: Number(r.target_price ?? 0),
             inquiryLineId: r.id,
+            taxCodeId: defaultTaxCodeId,
           }));
         }
       }

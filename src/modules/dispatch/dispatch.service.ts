@@ -144,6 +144,58 @@ export class DispatchService {
     };
   }
 
+  /** Full print-ready delivery challan: seller, ship-to, transport, packed lines, totals. */
+  async document(plantId: string, id: string): Promise<Record<string, unknown>> {
+    const head = (await this.db.query(
+      `SELECT sh.number, sh.dispatch_date, sh.status, sh.carrier, sh.tracking_no, sh.total_weight_kg,
+              o.legal_name AS org_legal, o.name AS org_name,
+              p.name AS plant_name, p.gstin AS plant_gstin, p.state_code AS plant_state, p.address AS plant_address,
+              c.name AS cust_name, c.code AS cust_code, c.gstin AS cust_gstin, c.state_code AS cust_state,
+              c.billing_address AS bill_addr, c.shipping_address AS ship_addr,
+              so.number AS so_number, so.customer_po_number AS cust_po,
+              e.ewb_number, e.vehicle_no
+         FROM shipment sh
+         JOIN plant p ON p.id = sh.plant_id
+         JOIN org o ON o.id = p.org_id
+         JOIN sales_order so ON so.id = sh.sales_order_id
+         JOIN customer c ON c.id = so.customer_id
+         LEFT JOIN eway_bill e ON e.shipment_id = sh.id
+        WHERE sh.id = $1 AND sh.plant_id = $2`,
+      [id, plantId],
+    )) as Array<Record<string, unknown>>;
+    if (!head[0]) throw new NotFoundException('Shipment not found');
+    const h = head[0];
+
+    const rows = (await this.db.query(
+      `SELECT pl.qty, pl.box_no, pl.weight_kg, sl.part_name
+         FROM packing_line pl JOIN so_line sl ON sl.id = pl.so_line_id WHERE pl.shipment_id = $1`,
+      [id],
+    )) as Array<{ qty: string; box_no: string | null; weight_kg: string | null; part_name: string }>;
+    const lines = rows.map((r, i) => ({
+      lineNo: i + 1,
+      description: r.part_name,
+      qty: Number(r.qty),
+      boxNo: r.box_no ?? '',
+      weightKg: r.weight_kg != null ? Number(r.weight_kg) : null,
+    }));
+
+    return {
+      title: 'DELIVERY CHALLAN',
+      seller: { name: (h.org_legal as string) || (h.org_name as string), plant: h.plant_name, gstin: h.plant_gstin, stateCode: h.plant_state, address: h.plant_address },
+      buyer: { name: h.cust_name, code: h.cust_code, gstin: h.cust_gstin, stateCode: h.cust_state, billingAddress: h.bill_addr, shippingAddress: h.ship_addr },
+      challan: {
+        number: h.number,
+        date: h.dispatch_date,
+        status: h.status,
+        salesOrder: h.so_number ?? null,
+        customerPo: h.cust_po ?? null,
+      },
+      transport: { carrier: h.carrier ?? null, trackingNo: h.tracking_no ?? null, ewbNumber: h.ewb_number ?? null, vehicleNo: h.vehicle_no ?? null },
+      lines,
+      totals: { totalQty: lines.reduce((a, l) => a + l.qty, 0), totalWeightKg: h.total_weight_kg != null ? Number(h.total_weight_kg) : null },
+    };
+  }
+
   /** Generate an e-way bill payload for a shipment above threshold (SM-163). */
   async generateEwayBill(s: Scope, id: string, dto: EwayBillDto): Promise<EwayBill> {
     if (dto.value <= EWB_THRESHOLD) {

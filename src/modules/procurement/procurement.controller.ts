@@ -47,6 +47,12 @@ export class ProcurementController {
     return this.po.findOne(u.plantId as string, id);
   }
 
+  @Get('purchase-orders/:id/document')
+  @RequirePermission('po.read')
+  poDocument(@CurrentUser() u: AuthUser, @Param('id') id: string) {
+    return this.po.document(u.plantId as string, id);
+  }
+
   @Post('purchase-orders/:id/approve')
   @RequirePermission('po.approve')
   approve(@CurrentUser() u: AuthUser, @Param('id') id: string) {

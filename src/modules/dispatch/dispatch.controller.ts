@@ -36,6 +36,12 @@ export class DispatchController {
     return this.service.challan(u.plantId as string, id);
   }
 
+  @Get(':id/document')
+  @RequirePermission('dispatch.read')
+  document(@CurrentUser() u: AuthUser, @Param('id') id: string) {
+    return this.service.document(u.plantId as string, id);
+  }
+
   @Get(':id/eway-bill')
   @RequirePermission('dispatch.read')
   getEway(@CurrentUser() u: AuthUser, @Param('id') id: string) {

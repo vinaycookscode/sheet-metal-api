@@ -29,6 +29,7 @@ export class SalesOrdersService {
         number,
         customerId: dto.customerId,
         customerPoNumber: dto.customerPoNumber,
+        vendorCode: dto.vendorCode,
         status: 'confirmed',
         orderDate: dto.orderDate,
         createdBy: s.userId,
@@ -67,6 +68,7 @@ export class SalesOrdersService {
         customerId: qv[0].customer_id,
         quoteVersionId,
         customerPoNumber: body.customerPoNumber,
+        vendorCode: body.vendorCode,
         status: 'confirmed',
         createdBy: s.userId,
         updatedBy: s.userId,
@@ -116,9 +118,13 @@ export class SalesOrdersService {
   }
 
   async update(s: Scope, id: string, dto: UpdateSalesOrderDto): Promise<SalesOrder> {
+    const { taxCodeId, ...header } = dto;
     const so = await this.findOne(s.plantId, id);
-    Object.assign(so, dto, { updatedBy: s.userId });
+    Object.assign(so, header, { updatedBy: s.userId });
     await this.db.getRepository(SalesOrder).save(so);
+    if (taxCodeId !== undefined) {
+      await this.db.query(`UPDATE so_line SET tax_code_id = $1 WHERE sales_order_id = $2`, [taxCodeId || null, id]);
+    }
     return this.findOne(s.plantId, id);
   }
 

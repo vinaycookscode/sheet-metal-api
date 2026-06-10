@@ -24,6 +24,9 @@ export class SalesOrder extends AuditedEntity {
   @Column({ name: 'customer_po_number', type: 'text', nullable: true })
   customerPoNumber?: string;
 
+  @Column({ name: 'vendor_code', type: 'varchar', length: 40, nullable: true })
+  vendorCode?: string;
+
   @Column({ type: 'enum', enum: SO_STATUSES, enumName: 'so_status', default: 'confirmed' })
   status: SoStatus;
 

@@ -47,6 +47,10 @@ export class CreateSalesOrderDto {
   customerPoNumber?: string;
 
   @IsOptional()
+  @IsString()
+  vendorCode?: string;
+
+  @IsOptional()
   @IsDateString()
   orderDate?: string;
 
@@ -61,12 +65,25 @@ export class FromQuoteDto {
   @IsOptional()
   @IsString()
   customerPoNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  vendorCode?: string;
 }
 
 export class UpdateSalesOrderDto {
   @IsOptional()
   @IsString()
   customerPoNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  vendorCode?: string;
+
+  /** When set, applies this HSN/GST tax code to every line on the order. */
+  @IsOptional()
+  @IsUUID()
+  taxCodeId?: string;
 
   @IsOptional()
   @IsDateString()

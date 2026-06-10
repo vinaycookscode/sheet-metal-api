@@ -52,7 +52,12 @@ export class InquiriesService {
     const where: Record<string, unknown> = { plantId };
     if (filter.status) where.status = filter.status;
     if (filter.customerId) where.customerId = filter.customerId;
-    return this.db.getRepository(Inquiry).find({ where, order: { createdAt: 'DESC' }, take: 200 });
+    return this.db.getRepository(Inquiry).find({
+      where,
+      relations: { lines: true },
+      order: { createdAt: 'DESC', lines: { lineNo: 'ASC' } },
+      take: 200,
+    });
   }
 
   async findOne(plantId: string, id: string, em?: EntityManager): Promise<Inquiry> {

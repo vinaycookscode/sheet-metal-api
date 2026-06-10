@@ -6,6 +6,7 @@ import { Invoice } from './invoice.entity';
 import { InvoiceLine } from './invoice-line.entity';
 import { GstTreatment } from '../../common/enums';
 import { computeLineTax, resolveTreatment, round2Money as round2 } from '../../common/tax';
+import { rupeesInWords } from '../../common/amount-in-words';
 import { CreateInvoiceDto } from './dto';
 
 interface Scope {
@@ -96,6 +97,89 @@ export class InvoiceService {
     const inv = await this.db.getRepository(Invoice).findOne({ where: { id, plantId }, relations: { lines: true }, order: { lines: { lineNo: 'ASC' } } });
     if (!inv) throw new NotFoundException('Invoice not found');
     return inv;
+  }
+
+  /** Full print-ready tax-invoice document: seller, buyer, lines (CGST/SGST/IGST split), totals, amount in words. */
+  async document(plantId: string, id: string): Promise<Record<string, unknown>> {
+    const inv = await this.findOne(plantId, id);
+    const head = (await this.db.query(
+      `SELECT o.legal_name AS org_legal, o.name AS org_name,
+              p.name AS plant_name, p.gstin AS plant_gstin, p.state_code AS plant_state, p.address AS plant_address,
+              c.name AS cust_name, c.code AS cust_code, c.gstin AS cust_gstin, c.state_code AS cust_state,
+              c.billing_address AS bill_addr, c.shipping_address AS ship_addr,
+              so.number AS so_number, so.customer_po_number AS cust_po,
+              sh.number AS shipment_number
+         FROM invoice i
+         JOIN org o ON o.id = i.org_id
+         JOIN plant p ON p.id = i.plant_id
+         JOIN customer c ON c.id = i.customer_id
+         LEFT JOIN sales_order so ON so.id = i.sales_order_id
+         LEFT JOIN shipment sh ON sh.id = i.shipment_id
+        WHERE i.id = $1 AND i.plant_id = $2`,
+      [id, plantId],
+    )) as Array<Record<string, unknown>>;
+    const h = head[0] ?? {};
+    const intra = inv.gstTreatment === 'intra_state';
+
+    const lines = inv.lines.map((l) => {
+      const tax = Number(l.taxAmount);
+      const cgst = intra ? round2(tax / 2) : 0;
+      const sgst = intra ? round2(tax - cgst) : 0;
+      const igst = intra ? 0 : tax;
+      return {
+        lineNo: l.lineNo,
+        description: l.description,
+        hsnSac: l.hsnSac ?? '',
+        qty: Number(l.qty),
+        unitPrice: Number(l.unitPrice),
+        taxableValue: Number(l.taxableValue),
+        gstRate: Number(l.gstRate),
+        cgst, sgst, igst,
+        amount: round2(Number(l.taxableValue) + tax),
+      };
+    });
+
+    return {
+      title: 'TAX INVOICE',
+      seller: {
+        name: (h.org_legal as string) || (h.org_name as string),
+        plant: h.plant_name,
+        gstin: h.plant_gstin,
+        stateCode: h.plant_state,
+        address: h.plant_address,
+      },
+      buyer: {
+        name: h.cust_name,
+        code: h.cust_code,
+        gstin: h.cust_gstin,
+        stateCode: h.cust_state,
+        billingAddress: h.bill_addr,
+        shippingAddress: h.ship_addr,
+      },
+      invoice: {
+        number: inv.number,
+        date: inv.invoiceDate,
+        status: inv.status,
+        gstTreatment: inv.gstTreatment,
+        placeOfSupply: h.cust_state,
+        reverseCharge: false,
+        salesOrder: h.so_number ?? null,
+        customerPo: h.cust_po ?? null,
+        shipment: h.shipment_number ?? null,
+      },
+      lines,
+      totals: {
+        subtotal: Number(inv.subtotal),
+        cgst: Number(inv.cgst),
+        sgst: Number(inv.sgst),
+        igst: Number(inv.igst),
+        taxTotal: round2(Number(inv.cgst) + Number(inv.sgst) + Number(inv.igst)),
+        grandTotal: Number(inv.grandTotal),
+        amountPaid: Number(inv.amountPaid),
+        balance: round2(Number(inv.grandTotal) - Number(inv.amountPaid)),
+      },
+      amountInWords: rupeesInWords(Number(inv.grandTotal)),
+    };
   }
 
   private async build(
