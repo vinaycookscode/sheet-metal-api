@@ -48,6 +48,12 @@ export class DispatchController {
     return this.service.certificate(u.plantId as string, id);
   }
 
+  @Get(':id/dossier')
+  @RequirePermission('dispatch.read')
+  dossier(@CurrentUser() u: AuthUser, @Param('id') id: string) {
+    return this.service.dossier(u.plantId as string, u.orgId, id);
+  }
+
   @Get(':id/eway-bill')
   @RequirePermission('dispatch.read')
   getEway(@CurrentUser() u: AuthUser, @Param('id') id: string) {

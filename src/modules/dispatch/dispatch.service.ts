@@ -253,6 +253,48 @@ export class DispatchService {
     };
   }
 
+  /** Quality dossier (SM-222): inspections + attached MTR/cert/drawing documents for a shipment. */
+  async dossier(plantId: string, orgId: string, id: string): Promise<Record<string, unknown>> {
+    const head = (await this.db.query(
+      `SELECT number, sales_order_id AS "salesOrderId" FROM shipment WHERE id = $1 AND plant_id = $2`,
+      [id, plantId],
+    )) as Array<{ number: string; salesOrderId: string }>;
+    if (!head[0]) throw new NotFoundException('Shipment not found');
+
+    const inspections = await this.db.query(
+      `SELECT id, kind, result, "at" FROM (
+         SELECT DISTINCT insp.id, insp.kind, insp.result, insp.inspected_at AS "at"
+           FROM packing_line pl
+           JOIN work_order wo ON wo.so_line_id = pl.so_line_id
+           JOIN inspection insp ON (insp.work_order_id = wo.id OR insp.so_line_id = pl.so_line_id)
+          WHERE pl.shipment_id = $1
+         UNION
+         SELECT DISTINCT insp.id, insp.kind, insp.result, insp.inspected_at AS "at"
+           FROM packing_line pl
+           JOIN work_order wo ON wo.so_line_id = pl.so_line_id
+           JOIN material_allocation ma ON ma.work_order_id = wo.id
+           JOIN inspection insp ON insp.stock_lot_id = ma.stock_lot_id
+          WHERE pl.shipment_id = $1
+       ) q ORDER BY "at" DESC NULLS LAST`,
+      [id],
+    );
+
+    const documents = await this.db.query(
+      `SELECT d.id, d.kind, d.file_name AS "fileName", d.entity_type AS "entityType", d.version
+         FROM document d
+        WHERE d.deleted_at IS NULL AND d.org_id = $3 AND (
+          (d.entity_type = 'sales-order' AND d.entity_id = $1)
+          OR (d.entity_type = 'part' AND d.entity_id IN (
+               SELECT DISTINCT sl.part_id FROM packing_line pl JOIN so_line sl ON sl.id = pl.so_line_id
+                WHERE pl.shipment_id = $2 AND sl.part_id IS NOT NULL))
+        )
+        ORDER BY d.created_at DESC`,
+      [head[0].salesOrderId, id, orgId],
+    );
+
+    return { shipment: head[0].number, inspections, documents };
+  }
+
   /** Generate an e-way bill payload for a shipment above threshold (SM-163). */
   async generateEwayBill(s: Scope, id: string, dto: EwayBillDto): Promise<EwayBill> {
     if (dto.value <= EWB_THRESHOLD) {
