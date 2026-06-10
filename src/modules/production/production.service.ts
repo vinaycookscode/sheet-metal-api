@@ -59,11 +59,11 @@ export class ProductionService {
       await em.query(`UPDATE wo_operation SET qty_good = qty_good + $2, qty_scrap = qty_scrap + $3 WHERE id = $1`, [dto.woOperationId, dto.qtyGood, qtyScrap]);
 
       const info = (await em.query(
-        `SELECT wop.op_no, wop.qty_good, wo.id AS wo_id, wo.qty,
+        `SELECT wop.op_no, wop.qty_good, wo.id AS wo_id, wo.qty, wo.plant_id, wo.part_id, wo.so_line_id,
                 (SELECT MAX(op_no) FROM wo_operation WHERE work_order_id = wo.id) AS max_op
            FROM wo_operation wop JOIN work_order wo ON wo.id = wop.work_order_id WHERE wop.id = $1`,
         [dto.woOperationId],
-      )) as Array<{ op_no: number; qty_good: string; wo_id: string; qty: string; max_op: number }>;
+      )) as Array<{ op_no: number; qty_good: string; wo_id: string; qty: string; plant_id: string; part_id: string; so_line_id: string; max_op: number }>;
       const r = info[0];
 
       let opCompleted = false;
@@ -76,6 +76,12 @@ export class ProductionService {
           await em.query(
             `UPDATE work_order SET status = 'completed', qty_completed = $2, qty_scrapped = $3, updated_by = $4 WHERE id = $1`,
             [r.wo_id, r.qty_good, scrap[0].s, s.userId],
+          );
+          // SM-230: receive finished goods into FG stock, pegged to the SO line.
+          await em.query(
+            `INSERT INTO fg_stock (plant_id, part_id, so_line_id, work_order_id, qty, location)
+             VALUES ($1, $2, $3, $4, $5, 'FG-STORE')`,
+            [r.plant_id, r.part_id, r.so_line_id, r.wo_id, r.qty_good],
           );
           woCompleted = true;
         }

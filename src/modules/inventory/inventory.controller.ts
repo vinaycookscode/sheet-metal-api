@@ -31,6 +31,12 @@ export class InventoryController {
     return this.service.summary(u.plantId as string);
   }
 
+  @Get('finished-goods')
+  @RequirePermission('stock.read')
+  finishedGoods(@CurrentUser() u: AuthUser) {
+    return this.service.listFinishedGoods(u.plantId as string);
+  }
+
   @Get('ledger')
   @RequirePermission('stock.read')
   ledger(@CurrentUser() u: AuthUser, @Query('itemId') itemId?: string, @Query('stockLotId') stockLotId?: string) {

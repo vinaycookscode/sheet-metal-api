@@ -57,6 +57,21 @@ export class DispatchService {
       });
       await em.save(shipment);
       await em.save(dto.lines.map((l) => em.create(PackingLine, { shipmentId: shipment.id, soLineId: l.soLineId, qty: l.qty, boxNo: l.boxNo, weightKg: l.weightKg })));
+
+      // SM-231: pick from finished-goods stock (FIFO across FG lots of the SO line; lenient if short).
+      for (const l of dto.lines) {
+        let remaining = l.qty;
+        const fgs = (await em.query(
+          `SELECT id, (qty - qty_shipped) AS avail FROM fg_stock WHERE so_line_id = $1 AND (qty - qty_shipped) > 0 ORDER BY created_at ASC`,
+          [l.soLineId],
+        )) as Array<{ id: string; avail: string }>;
+        for (const fg of fgs) {
+          if (remaining <= 1e-9) break;
+          const take = Math.min(Number(fg.avail), remaining);
+          await em.query(`UPDATE fg_stock SET qty_shipped = qty_shipped + $1 WHERE id = $2`, [take, fg.id]);
+          remaining -= take;
+        }
+      }
       return shipment.id;
     });
     return this.findOne(s.plantId, id);

@@ -118,6 +118,22 @@ export class InventoryService {
     return lot;
   }
 
+  /** Finished-goods on hand (SM-230), pegged to the SO line that produced it. */
+  listFinishedGoods(plantId: string) {
+    return this.db.query(
+      `SELECT fg.id, p.part_no AS "partNo", p.rev, so.number AS "salesOrder",
+              fg.qty, fg.qty_shipped AS "qtyShipped", (fg.qty - fg.qty_shipped) AS available,
+              fg.location, fg.created_at AS "createdAt"
+         FROM fg_stock fg
+         JOIN part p ON p.id = fg.part_id
+         LEFT JOIN so_line sl ON sl.id = fg.so_line_id
+         LEFT JOIN sales_order so ON so.id = sl.sales_order_id
+        WHERE fg.plant_id = $1
+        ORDER BY fg.created_at DESC LIMIT 500`,
+      [plantId],
+    );
+  }
+
   listStock(plantId: string, itemId?: string): Promise<StockLot[]> {
     return this.db.getRepository(StockLot).find({
       where: { plantId, ...(itemId ? { itemId } : {}) },
