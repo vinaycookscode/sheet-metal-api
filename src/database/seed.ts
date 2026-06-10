@@ -63,6 +63,7 @@ const PERMISSIONS = [
   'invoice.read', 'invoice.write',
   'payment.read', 'payment.write',
   'closure.read', 'closure.write',
+  'identity.read', 'identity.write',
 ];
 
 const ROLES: Record<string, { name: string; perms: string[] }> = {
