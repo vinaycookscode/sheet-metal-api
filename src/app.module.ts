@@ -23,6 +23,7 @@ import { ProductionModule } from './modules/production/production.module';
 import { QualityModule } from './modules/quality/quality.module';
 import { DispatchModule } from './modules/dispatch/dispatch.module';
 import { FinanceModule } from './modules/finance/finance.module';
+import { DocumentsModule } from './modules/documents/documents.module';
 
 /**
  * Modular monolith — one domain module per M# in PRODUCT-PLAN.md §4.
@@ -68,6 +69,7 @@ import { FinanceModule } from './modules/finance/finance.module';
     QualityModule,
     DispatchModule,
     FinanceModule,
+    DocumentsModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
