@@ -73,4 +73,20 @@ export class DocumentsService {
     if (!doc) throw new NotFoundException('Document not found');
     await this.repo.softRemove(doc);
   }
+
+  /** Approve/reject a drawing (or any doc). */
+  async review(orgId: string, id: string, status: 'approved' | 'rejected', userId: string): Promise<DocumentEntity> {
+    const doc = await this.repo.findOne({ where: { id, orgId } });
+    if (!doc) throw new NotFoundException('Document not found');
+    doc.reviewStatus = status;
+    doc.reviewedBy = userId;
+    doc.reviewedAt = new Date();
+    return this.repo.save(doc);
+  }
+
+  /** Drawing-review gate: returns counts so callers can decide whether release is allowed. */
+  async drawingStatus(orgId: string, entityType: string, entityId: string): Promise<{ total: number; approved: number }> {
+    const rows = await this.repo.find({ where: { orgId, entityType, entityId, kind: 'drawing' } });
+    return { total: rows.length, approved: rows.filter((d) => d.reviewStatus === 'approved').length };
+  }
 }

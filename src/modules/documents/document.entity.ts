@@ -33,6 +33,15 @@ export class DocumentEntity {
   @Column({ name: 'uploaded_by', type: 'uuid', nullable: true })
   uploadedBy?: string;
 
+  @Column({ name: 'review_status', type: 'varchar', length: 12, default: 'pending' })
+  reviewStatus: string;
+
+  @Column({ name: 'reviewed_by', type: 'uuid', nullable: true })
+  reviewedBy?: string;
+
+  @Column({ name: 'reviewed_at', type: 'timestamptz', nullable: true })
+  reviewedAt?: Date;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 

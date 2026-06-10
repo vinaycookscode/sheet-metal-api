@@ -60,6 +60,12 @@ export class DocumentsController {
     return new StreamableFile(stream);
   }
 
+  @Post(':id/review')
+  review(@CurrentUser() u: AuthUser, @Param('id') id: string, @Body() body: { status: 'approved' | 'rejected' }) {
+    const status = body?.status === 'approved' ? 'approved' : 'rejected';
+    return this.service.review(u.orgId, id, status, u.userId);
+  }
+
   @Delete(':id')
   remove(@CurrentUser() u: AuthUser, @Param('id') id: string) {
     return this.service.remove(u.orgId, id);

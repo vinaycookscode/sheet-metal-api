@@ -4,6 +4,7 @@ import { DataSource, EntityManager } from 'typeorm';
 import { Part } from './part.entity';
 import { RoutingOp } from './routing-op.entity';
 import { BomLine } from './bom-line.entity';
+import { DocumentsService } from '../documents/documents.service';
 import {
   BomLineDto,
   CreatePartDto,
@@ -33,7 +34,10 @@ export interface ExplodeNode {
 
 @Injectable()
 export class EngineeringService {
-  constructor(@InjectDataSource() private readonly db: DataSource) {}
+  constructor(
+    @InjectDataSource() private readonly db: DataSource,
+    private readonly documents: DocumentsService,
+  ) {}
 
   async create(s: Scope, dto: CreatePartDto): Promise<Part> {
     const id = await this.db.transaction(async (em) => {
@@ -169,6 +173,11 @@ export class EngineeringService {
 
   /** Engineering release (SM-133): lock the part; optionally release an SO line to plan. */
   async release(s: Scope, id: string, dto: ReleasePartDto): Promise<Part> {
+    // Drawing-review gate (SM-211): if drawings are attached, at least one must be approved.
+    const draw = await this.documents.drawingStatus(s.orgId, 'part', id);
+    if (draw.total > 0 && draw.approved === 0) {
+      throw new BadRequestException('Release blocked: the part has drawings but none are approved. Approve a drawing first.');
+    }
     await this.db.transaction(async (em) => {
       const part = await em.getRepository(Part).findOne({ where: { id, orgId: s.orgId } });
       if (!part) throw new NotFoundException('Part not found');
