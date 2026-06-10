@@ -196,6 +196,63 @@ export class DispatchService {
     };
   }
 
+  /** Certificate of Conformance (SM-221): conformance statement + material heat/lot traceability + inspection results. */
+  async certificate(plantId: string, id: string): Promise<Record<string, unknown>> {
+    const head = (await this.db.query(
+      `SELECT sh.number, sh.dispatch_date,
+              o.legal_name AS org_legal, o.name AS org_name,
+              p.name AS plant_name, p.gstin AS plant_gstin, p.state_code AS plant_state, p.address AS plant_address,
+              c.name AS cust_name, c.gstin AS cust_gstin,
+              so.number AS so_number, so.customer_po_number AS cust_po
+         FROM shipment sh
+         JOIN plant p ON p.id = sh.plant_id
+         JOIN org o ON o.id = p.org_id
+         JOIN sales_order so ON so.id = sh.sales_order_id
+         JOIN customer c ON c.id = so.customer_id
+        WHERE sh.id = $1 AND sh.plant_id = $2`,
+      [id, plantId],
+    )) as Array<Record<string, unknown>>;
+    if (!head[0]) throw new NotFoundException('Shipment not found');
+    const h = head[0];
+
+    const lines = await this.db.query(
+      `SELECT sl.part_name AS "partName", pl.qty FROM packing_line pl JOIN so_line sl ON sl.id = pl.so_line_id WHERE pl.shipment_id = $1`,
+      [id],
+    );
+    const traceability = await this.db.query(
+      `SELECT DISTINCT i.code AS item, lot.heat_no AS "heatNo", lot.lot_no AS "lotNo"
+         FROM packing_line pl
+         JOIN work_order wo ON wo.so_line_id = pl.so_line_id
+         JOIN material_allocation ma ON ma.work_order_id = wo.id
+         JOIN stock_lot lot ON lot.id = ma.stock_lot_id
+         JOIN item i ON i.id = lot.item_id
+        WHERE pl.shipment_id = $1 AND (lot.heat_no IS NOT NULL OR lot.lot_no IS NOT NULL)`,
+      [id],
+    );
+    const inspections = await this.db.query(
+      `SELECT DISTINCT insp.kind, insp.result
+         FROM packing_line pl
+         JOIN work_order wo ON wo.so_line_id = pl.so_line_id
+         JOIN inspection insp ON (insp.work_order_id = wo.id OR insp.so_line_id = pl.so_line_id)
+        WHERE pl.shipment_id = $1`,
+      [id],
+    );
+
+    return {
+      title: 'CERTIFICATE OF CONFORMANCE',
+      number: `${h.number as string}-COC`,
+      date: h.dispatch_date,
+      seller: { name: (h.org_legal as string) || (h.org_name as string), plant: h.plant_name, gstin: h.plant_gstin, stateCode: h.plant_state, address: h.plant_address },
+      buyer: { name: h.cust_name, gstin: h.cust_gstin },
+      refs: { shipment: h.number, salesOrder: h.so_number ?? null, customerPo: h.cust_po ?? null },
+      lines,
+      traceability,
+      inspections,
+      declaration:
+        'We hereby certify that the goods described above have been manufactured and inspected in accordance with the applicable drawings, specifications and purchase-order requirements, and conform thereto.',
+    };
+  }
+
   /** Generate an e-way bill payload for a shipment above threshold (SM-163). */
   async generateEwayBill(s: Scope, id: string, dto: EwayBillDto): Promise<EwayBill> {
     if (dto.value <= EWB_THRESHOLD) {

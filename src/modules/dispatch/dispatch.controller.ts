@@ -42,6 +42,12 @@ export class DispatchController {
     return this.service.document(u.plantId as string, id);
   }
 
+  @Get(':id/certificate')
+  @RequirePermission('dispatch.read')
+  certificate(@CurrentUser() u: AuthUser, @Param('id') id: string) {
+    return this.service.certificate(u.plantId as string, id);
+  }
+
   @Get(':id/eway-bill')
   @RequirePermission('dispatch.read')
   getEway(@CurrentUser() u: AuthUser, @Param('id') id: string) {
