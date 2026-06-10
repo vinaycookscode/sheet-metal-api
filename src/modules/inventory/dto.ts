@@ -1,8 +1,17 @@
-import { IsNumber, IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsIn, IsNumber, IsOptional, IsString, IsUUID } from 'class-validator';
 
 export class IssueToWoDto {
   @IsUUID()
   workOrderId: string;
+}
+
+export class LotQcDto {
+  @IsIn(['accepted', 'rejected', 'hold'])
+  decision: 'accepted' | 'rejected' | 'hold';
+
+  @IsOptional()
+  @IsString()
+  note?: string;
 }
 
 export class ReturnRemnantDto {

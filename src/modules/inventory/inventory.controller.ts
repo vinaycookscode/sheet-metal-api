@@ -1,7 +1,7 @@
-import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { InventoryService } from './inventory.service';
-import { AdjustStockDto, IssueToWoDto, ReturnRemnantDto } from './dto';
+import { AdjustStockDto, IssueToWoDto, LotQcDto, ReturnRemnantDto } from './dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { RequirePermission } from '../../common/decorators/require-permission.decorator';
@@ -53,5 +53,11 @@ export class InventoryController {
   @RequirePermission('stock.write')
   adjust(@CurrentUser() u: AuthUser, @Body() dto: AdjustStockDto) {
     return this.service.adjust(this.scope(u), dto);
+  }
+
+  @Post('lots/:id/qc')
+  @RequirePermission('inspection.write')
+  lotQc(@CurrentUser() u: AuthUser, @Param('id') id: string, @Body() dto: LotQcDto) {
+    return this.service.lotQc(this.scope(u), id, dto.decision, dto.note);
   }
 }

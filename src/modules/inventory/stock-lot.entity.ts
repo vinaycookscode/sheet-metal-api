@@ -27,6 +27,9 @@ export class StockLot {
   @Column({ name: 'qty_allocated', type: 'numeric', precision: 14, scale: 3, default: 0 })
   qtyAllocated: number;
 
+  @Column({ name: 'qc_status', type: 'varchar', length: 12, default: 'accepted' })
+  qcStatus: string;
+
   @Column({ name: 'unit_cost', type: 'numeric', precision: 12, scale: 4, nullable: true })
   unitCost?: number;
 

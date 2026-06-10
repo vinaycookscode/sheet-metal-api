@@ -82,6 +82,7 @@ export class InventoryService {
       .createQueryBuilder('l')
       .where('l.plant_id = :p AND l.item_id = :i', { p: params.plantId, i: params.itemId })
       .andWhere('l.qty_on_hand - l.qty_allocated > 0')
+      .andWhere("l.qc_status = 'accepted'") // SM-220: don't allocate rejected/held material
       .orderBy('l.created_at', 'ASC')
       .getMany();
 
@@ -99,6 +100,22 @@ export class InventoryService {
       remaining = round3(remaining - take);
     }
     return { allocated, shortfall: round3(Math.max(0, params.qtyNeeded - allocated)) };
+  }
+
+  /** Incoming QC decision on a received lot (SM-220): records an incoming inspection and gates allocation. */
+  async lotQc(scope: { plantId: string; userId: string }, lotId: string, decision: 'accepted' | 'rejected' | 'hold', note?: string): Promise<StockLot> {
+    const repo = this.db.getRepository(StockLot);
+    const lot = await repo.findOne({ where: { id: lotId, plantId: scope.plantId } });
+    if (!lot) throw new NotFoundException('Stock lot not found');
+    lot.qcStatus = decision;
+    await repo.save(lot);
+    const result = decision === 'accepted' ? 'pass' : decision === 'rejected' ? 'fail' : 'pending';
+    await this.db.query(
+      `INSERT INTO inspection (plant_id, kind, result, stock_lot_id, inspector_id, inspected_at, notes)
+       VALUES ($1, 'incoming', $2, $3, $4, now(), $5)`,
+      [scope.plantId, result, lotId, scope.userId, note ?? null],
+    );
+    return lot;
   }
 
   listStock(plantId: string, itemId?: string): Promise<StockLot[]> {
