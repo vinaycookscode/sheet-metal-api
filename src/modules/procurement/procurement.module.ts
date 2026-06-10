@@ -10,6 +10,7 @@ import { ProcurementController } from './procurement.controller';
 import { DocSequenceModule } from '../doc-sequence/doc-sequence.module';
 import { InventoryModule } from '../inventory/inventory.module';
 import { PlanningModule } from '../planning/planning.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 /**
  * Procurement (SM-142/143): requisition→PO with approval lifecycle, and GRN
@@ -22,6 +23,7 @@ import { PlanningModule } from '../planning/planning.module';
     DocSequenceModule,
     InventoryModule,
     PlanningModule,
+    NotificationsModule,
   ],
   controllers: [ProcurementController],
   providers: [PurchaseOrdersService, GrnService],

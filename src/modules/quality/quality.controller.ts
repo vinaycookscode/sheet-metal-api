@@ -8,7 +8,7 @@ import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { RequirePermission } from '../../common/decorators/require-permission.decorator';
 import { CurrentUser, AuthUser } from '../../common/decorators/current-user.decorator';
 
-const scope = (u: AuthUser) => ({ plantId: u.plantId as string, userId: u.userId });
+const scope = (u: AuthUser) => ({ orgId: u.orgId, plantId: u.plantId as string, userId: u.userId });
 
 @ApiTags('quality')
 @ApiBearerAuth()

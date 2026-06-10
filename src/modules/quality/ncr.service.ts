@@ -2,10 +2,12 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { DocSequenceService } from '../doc-sequence/doc-sequence.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { Ncr } from './ncr.entity';
 import { CreateNcrDto, DispositionDto } from './dto';
 
 interface Scope {
+  orgId: string;
   plantId: string;
   userId: string;
 }
@@ -15,6 +17,7 @@ export class NcrService {
   constructor(
     @InjectDataSource() private readonly db: DataSource,
     private readonly docSeq: DocSequenceService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async create(s: Scope, dto: CreateNcrDto): Promise<Ncr> {
@@ -36,7 +39,15 @@ export class NcrService {
       await em.save(ncr);
       return ncr.id;
     });
-    return this.findOne(s.plantId, id);
+    const ncr = await this.findOne(s.plantId, id);
+    await this.notifications.notifyOrg(s.orgId, {
+      type: 'ncr',
+      title: `NCR raised: ${ncr.number}`,
+      body: ncr.defect,
+      link: '/ncrs',
+      email: ncr.isCritical,
+    });
+    return ncr;
   }
 
   async disposition(s: Scope, id: string, dto: DispositionDto): Promise<Ncr> {

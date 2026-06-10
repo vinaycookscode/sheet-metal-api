@@ -7,6 +7,7 @@ import { InspectionsService } from './inspections.service';
 import { NcrService } from './ncr.service';
 import { InspectionsController, NcrController } from './quality.controller';
 import { DocSequenceModule } from '../doc-sequence/doc-sequence.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 /**
  * Quality (SM-160/161): final inspection with measured-vs-tolerance evaluation,
@@ -14,7 +15,7 @@ import { DocSequenceModule } from '../doc-sequence/doc-sequence.module';
  * critical NCRs / failed final inspection block shipment) in the next batch.
  */
 @Module({
-  imports: [TypeOrmModule.forFeature([Inspection, InspectionChar, Ncr]), DocSequenceModule],
+  imports: [TypeOrmModule.forFeature([Inspection, InspectionChar, Ncr]), DocSequenceModule, NotificationsModule],
   controllers: [InspectionsController, NcrController],
   providers: [InspectionsService, NcrService],
   exports: [InspectionsService, NcrService],

@@ -25,6 +25,7 @@ import { DispatchModule } from './modules/dispatch/dispatch.module';
 import { FinanceModule } from './modules/finance/finance.module';
 import { DocumentsModule } from './modules/documents/documents.module';
 import { AuditModule } from './modules/audit/audit.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 /**
  * Modular monolith — one domain module per M# in PRODUCT-PLAN.md §4.
@@ -72,6 +73,7 @@ import { AuditModule } from './modules/audit/audit.module';
     FinanceModule,
     DocumentsModule,
     AuditModule,
+    NotificationsModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

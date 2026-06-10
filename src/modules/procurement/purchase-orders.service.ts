@@ -8,6 +8,7 @@ import { PoLine } from './po-line.entity';
 import { CreatePurchaseOrderDto, FromRequisitionsDto } from './dto';
 import { computeLineTax, resolveTreatment } from '../../common/tax';
 import { rupeesInWords } from '../../common/amount-in-words';
+import { NotificationsService } from '../notifications/notifications.service';
 
 interface Scope {
   orgId: string;
@@ -31,11 +32,22 @@ export class PurchaseOrdersService {
     @InjectDataSource() private readonly db: DataSource,
     private readonly docSeq: DocSequenceService,
     private readonly mrp: MrpService,
+    private readonly notifications: NotificationsService,
   ) {}
+
+  private async notifyCreated(s: Scope, po: PurchaseOrder): Promise<PurchaseOrder> {
+    await this.notifications.notifyOrg(s.orgId, {
+      type: 'po_approval',
+      title: `PO ${po.number} awaiting approval`,
+      link: '/purchase-orders',
+      email: true,
+    });
+    return po;
+  }
 
   async create(s: Scope, dto: CreatePurchaseOrderDto): Promise<PurchaseOrder> {
     const id = await this.db.transaction(async (em) => this.build(em, s, dto.supplierId, dto.isSubcontract, dto.orderDate, dto.lines));
-    return this.findOne(s.plantId, id);
+    return this.notifyCreated(s, await this.findOne(s.plantId, id));
   }
 
   /** Requisition → PO (SM-142): consolidate requisitions onto one supplier PO. */
@@ -58,7 +70,7 @@ export class PurchaseOrdersService {
       await this.mrp.markRequisitionsOrdered(em, reqIds);
       return poId;
     });
-    return this.findOne(s.plantId, id);
+    return this.notifyCreated(s, await this.findOne(s.plantId, id));
   }
 
   list(plantId: string, filter: { status?: string; supplierId?: string }): Promise<PurchaseOrder[]> {
