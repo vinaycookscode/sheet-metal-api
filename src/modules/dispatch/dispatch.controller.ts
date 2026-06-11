@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { DispatchService } from './dispatch.service';
-import { CreateShipmentDto, DispatchShipmentDto, EwayBillDto } from './dto';
+import { AcceptShipmentDto, CreateShipmentDto, DispatchShipmentDto, EwayBillDto } from './dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { RequirePermission } from '../../common/decorators/require-permission.decorator';
@@ -76,6 +76,12 @@ export class DispatchController {
   @RequirePermission('dispatch.write')
   dispatch(@CurrentUser() u: AuthUser, @Param('id') id: string, @Body() dto: DispatchShipmentDto) {
     return this.service.dispatch(this.scope(u), id, dto);
+  }
+
+  @Post(':id/accept')
+  @RequirePermission('dispatch.write')
+  accept(@CurrentUser() u: AuthUser, @Param('id') id: string, @Body() dto: AcceptShipmentDto) {
+    return this.service.accept(this.scope(u), id, dto);
   }
 
   @Post(':id/eway-bill')

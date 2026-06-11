@@ -45,6 +45,12 @@ export class DispatchShipmentDto {
   @IsOptional() @IsNumber() @Min(0) freightCost?: number;
 }
 
+export class AcceptShipmentDto {
+  @IsString() acceptedBy: string;
+  @IsOptional() @IsString() note?: string;
+  @IsOptional() @IsDateString() date?: string;
+}
+
 export class EwayBillDto {
   @IsNumber()
   @Min(0)

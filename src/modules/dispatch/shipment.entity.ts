@@ -35,6 +35,15 @@ export class Shipment {
   @Column({ name: 'total_weight_kg', type: 'numeric', precision: 12, scale: 3, nullable: true })
   totalWeightKg?: number;
 
+  @Column({ name: 'accepted_at', type: 'timestamptz', nullable: true })
+  acceptedAt?: Date;
+
+  @Column({ name: 'accepted_by', type: 'text', nullable: true })
+  acceptedBy?: string;
+
+  @Column({ name: 'acceptance_note', type: 'text', nullable: true })
+  acceptanceNote?: string;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 

@@ -121,6 +121,22 @@ export class DispatchService {
     return this.findOne(s.plantId, id);
   }
 
+  /** Customer acceptance / proof of delivery (SM-250): mark a dispatched shipment delivered + record POD. */
+  async accept(s: Scope, id: string, dto: { acceptedBy: string; note?: string; date?: string }): Promise<Shipment> {
+    const repo = this.db.getRepository(Shipment);
+    const shipment = await repo.findOne({ where: { id, plantId: s.plantId } });
+    if (!shipment) throw new NotFoundException('Shipment not found');
+    if (shipment.status !== 'dispatched' && shipment.status !== 'delivered') {
+      throw new BadRequestException(`Shipment is '${shipment.status}', expected 'dispatched'`);
+    }
+    shipment.status = 'delivered';
+    shipment.acceptedAt = dto.date ? new Date(dto.date) : new Date();
+    shipment.acceptedBy = dto.acceptedBy;
+    shipment.acceptanceNote = dto.note;
+    await repo.save(shipment);
+    return this.findOne(s.plantId, id);
+  }
+
   list(plantId: string, filter: { status?: string; salesOrderId?: string }): Promise<Shipment[]> {
     const where: Record<string, unknown> = { plantId };
     if (filter.status) where.status = filter.status;
