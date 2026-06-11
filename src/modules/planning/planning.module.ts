@@ -5,6 +5,7 @@ import { WoOperation } from './wo-operation.entity';
 import { PurchaseRequisition } from './purchase-requisition.entity';
 import { MrpService } from './mrp.service';
 import { WorkOrdersService } from './work-orders.service';
+import { SchedulingService } from './scheduling.service';
 import { PlanningController } from './planning.controller';
 import { DocSequenceModule } from '../doc-sequence/doc-sequence.module';
 import { EngineeringModule } from '../engineering/engineering.module';
@@ -24,7 +25,7 @@ import { InventoryModule } from '../inventory/inventory.module';
     InventoryModule,
   ],
   controllers: [PlanningController],
-  providers: [MrpService, WorkOrdersService],
+  providers: [MrpService, WorkOrdersService, SchedulingService],
   exports: [MrpService, WorkOrdersService],
 })
 export class PlanningModule {}

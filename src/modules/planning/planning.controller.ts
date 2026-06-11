@@ -2,6 +2,7 @@ import { Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { MrpService } from './mrp.service';
 import { WorkOrdersService } from './work-orders.service';
+import { SchedulingService } from './scheduling.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { RequirePermission } from '../../common/decorators/require-permission.decorator';
@@ -15,6 +16,7 @@ export class PlanningController {
   constructor(
     private readonly mrp: MrpService,
     private readonly workOrders: WorkOrdersService,
+    private readonly scheduling: SchedulingService,
   ) {}
 
   private scope(u: AuthUser) {
@@ -50,5 +52,19 @@ export class PlanningController {
   @RequirePermission('wo.release')
   releaseWo(@CurrentUser() u: AuthUser, @Param('id') id: string) {
     return this.workOrders.release(this.scope(u), id);
+  }
+
+  /** SM-232: load vs capacity per work center. */
+  @Get('capacity')
+  @RequirePermission('wo.read')
+  capacity(@CurrentUser() u: AuthUser) {
+    return this.scheduling.capacityBoard(u.plantId as string);
+  }
+
+  /** SM-233: per-WO earliest finish vs promised date. */
+  @Get('schedule')
+  @RequirePermission('wo.read')
+  schedule(@CurrentUser() u: AuthUser) {
+    return this.scheduling.schedule(u.plantId as string);
   }
 }
