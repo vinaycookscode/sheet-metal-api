@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { ArrayMinSize, IsArray, IsNumber, IsOptional, IsString, IsUUID, Min, ValidateNested } from 'class-validator';
+import { ArrayMinSize, IsArray, IsDateString, IsNumber, IsOptional, IsString, IsUUID, Min, ValidateNested } from 'class-validator';
 
 export class InvoiceLineInputDto {
   @IsString()
@@ -41,6 +41,23 @@ export class RecordPaymentDto {
   customerId: string;
 
   @IsOptional() @IsUUID() invoiceId?: string;
+
+  @IsNumber()
+  @Min(0)
+  amount: number;
+
+  @IsOptional() @IsString() method?: string;
+  @IsOptional() @IsString() reference?: string;
+}
+
+export class CreateSupplierInvoiceDto {
+  @IsOptional() @IsString() supplierRef?: string;
+  @IsOptional() @IsDateString() invoiceDate?: string;
+}
+
+export class RecordVendorPaymentDto {
+  @IsOptional() @IsUUID() supplierInvoiceId?: string;
+  @IsOptional() @IsUUID() supplierId?: string;
 
   @IsNumber()
   @Min(0)

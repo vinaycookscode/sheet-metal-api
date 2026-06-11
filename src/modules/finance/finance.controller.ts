@@ -3,7 +3,8 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { InvoiceService } from './invoice.service';
 import { PaymentService } from './payment.service';
 import { ClosureService } from './closure.service';
-import { CreateInvoiceDto, RecordPaymentDto } from './dto';
+import { ApService } from './ap.service';
+import { CreateInvoiceDto, CreateSupplierInvoiceDto, RecordPaymentDto, RecordVendorPaymentDto } from './dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { RequirePermission } from '../../common/decorators/require-permission.decorator';
@@ -99,5 +100,57 @@ export class ClosureController {
   @RequirePermission('closure.write')
   close(@CurrentUser() u: AuthUser, @Param('id') id: string) {
     return this.service.close(ps(u), id);
+  }
+}
+
+@ApiTags('finance')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@Controller('supplier-invoices')
+export class SupplierInvoiceController {
+  constructor(private readonly service: ApService) {}
+
+  @Get()
+  @RequirePermission('payment.read')
+  list(@CurrentUser() u: AuthUser) {
+    return this.service.list(u.plantId as string);
+  }
+
+  @Post('from-po/:poId')
+  @RequirePermission('payment.write')
+  create(@CurrentUser() u: AuthUser, @Param('poId') poId: string, @Body() dto: CreateSupplierInvoiceDto) {
+    return this.service.createFromPo(full(u), poId, dto);
+  }
+
+  @Post(':id/match')
+  @RequirePermission('payment.write')
+  match(@CurrentUser() u: AuthUser, @Param('id') id: string) {
+    return this.service.match(u.plantId as string, id);
+  }
+
+  @Post(':id/approve')
+  @RequirePermission('payment.write')
+  approve(@CurrentUser() u: AuthUser, @Param('id') id: string) {
+    return this.service.approve(u.plantId as string, id);
+  }
+}
+
+@ApiTags('finance')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@Controller('vendor-payments')
+export class VendorPaymentController {
+  constructor(private readonly service: ApService) {}
+
+  @Get('ap-aging')
+  @RequirePermission('payment.read')
+  aging(@CurrentUser() u: AuthUser) {
+    return this.service.apAging(u.plantId as string);
+  }
+
+  @Post()
+  @RequirePermission('payment.write')
+  record(@CurrentUser() u: AuthUser, @Body() dto: RecordVendorPaymentDto) {
+    return this.service.recordPayment(full(u), dto);
   }
 }
