@@ -23,6 +23,7 @@ import { ProductionModule } from './modules/production/production.module';
 import { QualityModule } from './modules/quality/quality.module';
 import { DispatchModule } from './modules/dispatch/dispatch.module';
 import { FinanceModule } from './modules/finance/finance.module';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { DocumentsModule } from './modules/documents/documents.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
@@ -72,6 +73,7 @@ import { AdminModule } from './modules/admin/admin.module';
     QualityModule,
     DispatchModule,
     FinanceModule,
+    AnalyticsModule,
     DocumentsModule,
     AuditModule,
     NotificationsModule,
