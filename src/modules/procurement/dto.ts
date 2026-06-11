@@ -12,6 +12,49 @@ import {
   ValidateNested,
 } from 'class-validator';
 
+export class RfqLineInputDto {
+  @IsUUID()
+  itemId: string;
+
+  @IsNumber()
+  @Min(0)
+  qty: number;
+}
+
+export class CreateRfqDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => RfqLineInputDto)
+  lines: RfqLineInputDto[];
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
+
+export class AddRfqQuoteDto {
+  @IsUUID()
+  rfqLineId: string;
+
+  @IsUUID()
+  supplierId: string;
+
+  @IsNumber()
+  @Min(0)
+  unitPrice: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  leadDays?: number;
+}
+
+export class AwardRfqDto {
+  @IsUUID()
+  supplierId: string;
+}
+
 export class PoLineDto {
   @IsUUID()
   itemId: string;
