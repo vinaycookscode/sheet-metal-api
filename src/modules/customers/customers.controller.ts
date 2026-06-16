@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CustomersService } from './customers.service';
-import { CreateCustomerDto } from './dto/create-customer.dto';
+import { BulkCreateCustomersDto, CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
@@ -40,7 +40,13 @@ export class CustomersController {
   @Post()
   @RequirePermission('customer.write')
   create(@CurrentUser() user: AuthUser, @Body() dto: CreateCustomerDto) {
-    return this.service.create(user.orgId, user.userId, dto);
+    return this.service.create(user.orgId, user.plantId as string, user.userId, dto);
+  }
+
+  @Post('bulk')
+  @RequirePermission('customer.write')
+  bulk(@CurrentUser() user: AuthUser, @Body() dto: BulkCreateCustomersDto) {
+    return this.service.bulkCreate(user.orgId, user.plantId as string, user.userId, dto.customers);
   }
 
   @Patch(':id')

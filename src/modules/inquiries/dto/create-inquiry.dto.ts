@@ -6,6 +6,9 @@ export class CreateInquiryDto {
   @IsUUID()
   customerId: string;
 
+  @IsUUID()
+  projectId: string;
+
   @IsOptional()
   @IsDateString()
   requiredDate?: string;

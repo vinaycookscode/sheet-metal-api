@@ -21,6 +21,9 @@ export class Quote extends AuditedEntity {
   @Column({ name: 'customer_id', type: 'uuid' })
   customerId: string;
 
+  @Column({ name: 'project_id', type: 'uuid', nullable: true })
+  projectId?: string;
+
   @Column({ name: 'current_version', type: 'int', default: 1 })
   currentVersion: number;
 

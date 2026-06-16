@@ -43,6 +43,7 @@ const PLANT_ID = '00000000-0000-0000-0000-0000000000a1';
 // Add new module permissions here; the admin role is granted the whole list.
 const PERMISSIONS = [
   'customer.read', 'customer.write', 'customer.delete',
+  'project.read', 'project.write',
   'supplier.read', 'supplier.write', 'supplier.delete',
   'item.read', 'item.write', 'item.delete',
   'masterdata.read', 'masterdata.write', 'masterdata.delete',
@@ -71,7 +72,7 @@ const ROLES: Record<string, { name: string; perms: string[] }> = {
   sales: {
     name: 'Sales',
     perms: [
-      'customer.read', 'masterdata.read', 'item.read', 'supplier.read', 'docseq.read',
+      'customer.read', 'project.read', 'project.write', 'masterdata.read', 'item.read', 'supplier.read', 'docseq.read',
       'inquiry.read', 'inquiry.write', 'quote.read', 'quote.write', 'so.read', 'so.write',
     ],
   },

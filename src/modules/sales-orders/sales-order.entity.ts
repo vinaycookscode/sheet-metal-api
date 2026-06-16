@@ -18,6 +18,9 @@ export class SalesOrder extends AuditedEntity {
   @Column({ name: 'customer_id', type: 'uuid' })
   customerId: string;
 
+  @Column({ name: 'project_id', type: 'uuid', nullable: true })
+  projectId?: string;
+
   @Column({ name: 'quote_version_id', type: 'uuid', nullable: true })
   quoteVersionId?: string;
 

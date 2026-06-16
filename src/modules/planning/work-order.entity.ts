@@ -18,6 +18,9 @@ export class WorkOrder extends AuditedEntity {
   @Column({ name: 'so_line_id', type: 'uuid' })
   soLineId: string;
 
+  @Column({ name: 'project_id', type: 'uuid', nullable: true })
+  projectId?: string;
+
   @Column({ name: 'part_id', type: 'uuid' })
   partId: string;
 

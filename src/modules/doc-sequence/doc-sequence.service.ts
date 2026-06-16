@@ -7,6 +7,7 @@ import { DocSequence } from './doc-sequence.entity';
 const DEFAULT_PREFIX: Record<string, string> = {
   INQ: 'INQ', QT: 'QT', SO: 'SO', WO: 'WO',
   PO: 'PO', GRN: 'GRN', INV: 'INV', DC: 'DC', NCR: 'NCR',
+  PRJ: 'PRJ', CUST: 'CUST',
 };
 
 /**

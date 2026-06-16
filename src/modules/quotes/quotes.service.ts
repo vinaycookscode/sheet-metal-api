@@ -33,6 +33,7 @@ export class QuotesService {
     const id = await this.db.transaction(async (em) => {
       let customerId = dto.customerId;
       let lines = dto.lines;
+      let projectId: string | undefined;
 
       // Derive customer / lines from the inquiry when not given explicitly.
       if (dto.inquiryId) {
@@ -48,6 +49,7 @@ export class QuotesService {
           );
         }
         customerId = customerId ?? inq.customerId;
+        projectId = inq.projectId;
         if (!lines || lines.length === 0) {
           const il = (await em.query(
             `SELECT id, part_name, qty, target_price FROM inquiry_line WHERE inquiry_id = $1 ORDER BY line_no`,
@@ -76,6 +78,7 @@ export class QuotesService {
         number,
         inquiryId: dto.inquiryId,
         customerId,
+        projectId,
         currentVersion: 1,
         status: 'draft',
         createdBy: s.userId,

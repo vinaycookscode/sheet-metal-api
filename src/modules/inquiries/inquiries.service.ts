@@ -4,6 +4,8 @@ import { DataSource, EntityManager } from 'typeorm';
 import { DocSequenceService } from '../doc-sequence/doc-sequence.service';
 import { Inquiry } from './inquiry.entity';
 import { InquiryLine } from './inquiry-line.entity';
+import { Project } from '../projects/project.entity';
+import { BlockedException } from '../../common/exceptions/blocked.exception';
 import { InquiryStatus } from '../../common/enums';
 import { CreateInquiryDto } from './dto/create-inquiry.dto';
 import { InquiryLineDto } from './dto/inquiry-line.dto';
@@ -28,12 +30,23 @@ export class InquiriesService {
 
   async create(s: Scope, dto: CreateInquiryDto): Promise<Inquiry> {
     const id = await this.db.transaction(async (em) => {
+      // The project must exist in this org and belong to the same customer.
+      const project = await em.findOne(Project, { where: { id: dto.projectId, orgId: s.orgId } });
+      if (!project) throw new NotFoundException('Project not found');
+      if (project.customerId !== dto.customerId) {
+        throw new BlockedException(
+          'PROJECT_CUSTOMER_MISMATCH',
+          'That project belongs to a different customer — pick a project under this customer, or create a new one.',
+        );
+      }
+
       const number = await this.docSeq.allocate(s.plantId, 'INQ', em);
       const inquiry = em.create(Inquiry, {
         orgId: s.orgId,
         plantId: s.plantId,
         number,
         customerId: dto.customerId,
+        projectId: dto.projectId,
         status: 'new',
         requiredDate: dto.requiredDate,
         ownerId: dto.ownerId ?? s.userId,

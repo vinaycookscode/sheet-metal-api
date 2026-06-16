@@ -25,6 +25,9 @@ export type RateBasis = (typeof RATE_BASES)[number];
 export const INQUIRY_STATUSES = ['new', 'estimating', 'quoted', 'won', 'lost', 'cancelled'] as const;
 export type InquiryStatus = (typeof INQUIRY_STATUSES)[number];
 
+export const PROJECT_STATUSES = ['active', 'on_hold', 'completed', 'cancelled'] as const;
+export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
+
 export const QUOTE_STATUSES = ['draft', 'sent', 'accepted', 'rejected', 'expired'] as const;
 export type QuoteStatus = (typeof QUOTE_STATUSES)[number];
 

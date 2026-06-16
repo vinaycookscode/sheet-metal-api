@@ -21,6 +21,7 @@ interface SoLineRow {
   part_id: string;
   qty: string;
   promised_date: string | null;
+  project_id: string | null;
 }
 
 export interface MrpResult {
@@ -54,7 +55,7 @@ export class MrpService {
     const mrpRunId = randomUUID();
     return this.db.transaction(async (em) => {
       const soLines = (await em.query(
-        `SELECT sl.id, sl.part_id, sl.qty, sl.promised_date
+        `SELECT sl.id, sl.part_id, sl.qty, sl.promised_date, so.project_id
            FROM so_line sl JOIN sales_order so ON so.id = sl.sales_order_id
           WHERE so.plant_id = $1 AND sl.status = 'released_to_plan' AND sl.part_id IS NOT NULL
           ORDER BY sl.promised_date NULLS LAST`,
@@ -87,6 +88,7 @@ export class MrpService {
           plantId: s.plantId,
           number,
           soLineId: line.id,
+          projectId: line.project_id ?? undefined,
           partId: line.part_id,
           qty,
           status: 'planned',

@@ -1,4 +1,6 @@
+import { Type } from 'class-transformer';
 import {
+  ArrayMinSize,
   IsInt,
   IsNumber,
   IsObject,
@@ -7,15 +9,18 @@ import {
   Length,
   Matches,
   Min,
+  ValidateNested,
 } from 'class-validator';
 
 // GSTIN: 2-digit state + 10-char PAN + entity + Z + checksum
 const GSTIN_RE = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
 
 export class CreateCustomerDto {
+  /** Optional — auto-allocated (CUST-...) when omitted. */
+  @IsOptional()
   @IsString()
   @Length(1, 24)
-  code: string;
+  code?: string;
 
   @IsString()
   name: string;
@@ -46,4 +51,12 @@ export class CreateCustomerDto {
   @IsNumber()
   @Min(0)
   creditLimit?: number;
+}
+
+/** Bulk create — add several customers in one call (each gets an auto code when omitted). */
+export class BulkCreateCustomersDto {
+  @ValidateNested({ each: true })
+  @ArrayMinSize(1)
+  @Type(() => CreateCustomerDto)
+  customers: CreateCustomerDto[];
 }

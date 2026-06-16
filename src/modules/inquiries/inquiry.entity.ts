@@ -18,6 +18,9 @@ export class Inquiry extends AuditedEntity {
   @Column({ name: 'customer_id', type: 'uuid' })
   customerId: string;
 
+  @Column({ name: 'project_id', type: 'uuid', nullable: true })
+  projectId?: string;
+
   @Column({ type: 'enum', enum: INQUIRY_STATUSES, enumName: 'inquiry_status', default: 'new' })
   status: InquiryStatus;
 

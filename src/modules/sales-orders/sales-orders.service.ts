@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { BlockedException } from '../../common/exceptions/blocked.exception';
+import { Quote } from '../quotes/quote.entity';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import { DocSequenceService } from '../doc-sequence/doc-sequence.service';
@@ -77,12 +78,16 @@ export class SalesOrdersService {
       )) as Array<{ id: string; part_name: string; primary_qty: string; unit_price: string; tax_code_id: string | null }>;
       if (!qLines.length) throw new BadRequestException('Quote version has no lines');
 
+      // Carry the quote's project onto the sales order.
+      const quote = await em.findOne(Quote, { where: { id: qv[0].quote_id } });
+
       const number = await this.docSeq.allocate(s.plantId, 'SO', em);
       const so = em.create(SalesOrder, {
         orgId: s.orgId,
         plantId: s.plantId,
         number,
         customerId: qv[0].customer_id,
+        projectId: quote?.projectId,
         quoteVersionId,
         customerPoNumber: body.customerPoNumber,
         vendorCode: body.vendorCode,
