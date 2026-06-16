@@ -28,6 +28,7 @@ import { DocumentsModule } from './modules/documents/documents.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { TasksModule } from './modules/tasks/tasks.module';
 
 /**
  * Modular monolith — one domain module per M# in PRODUCT-PLAN.md §4.
@@ -78,6 +79,7 @@ import { AdminModule } from './modules/admin/admin.module';
     AuditModule,
     NotificationsModule,
     AdminModule,
+    TasksModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
