@@ -4,6 +4,7 @@ export interface AuthUser {
   userId: string;
   orgId: string;
   plantId?: string;
+  roles: string[];
   permissions: string[];
 }
 

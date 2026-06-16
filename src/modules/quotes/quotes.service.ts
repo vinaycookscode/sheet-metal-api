@@ -1,4 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BlockedException } from '../../common/exceptions/blocked.exception';
+import { Inquiry } from '../inquiries/inquiry.entity';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import { DocSequenceService } from '../doc-sequence/doc-sequence.service';
@@ -34,12 +36,18 @@ export class QuotesService {
 
       // Derive customer / lines from the inquiry when not given explicitly.
       if (dto.inquiryId) {
-        const inq = (await em.query(
-          `SELECT customer_id FROM inquiry WHERE id = $1 AND plant_id = $2`,
-          [dto.inquiryId, s.plantId],
-        )) as Array<{ customer_id: string }>;
-        if (!inq[0]) throw new NotFoundException('Inquiry not found');
-        customerId = customerId ?? inq[0].customer_id;
+        const inq = await em.findOne(Inquiry, {
+          where: { id: dto.inquiryId, plantId: s.plantId },
+        });
+        if (!inq) throw new NotFoundException('Inquiry not found');
+        if (inq.status === 'lost' || inq.status === 'cancelled') {
+          throw new BlockedException(
+            'INQUIRY_NOT_QUOTABLE',
+            `Inquiry ${inq.number} is marked "${inq.status}" — reopen it before creating a quote.`,
+            { label: `Open ${inq.number}`, link: `/inquiries/${dto.inquiryId}` },
+          );
+        }
+        customerId = customerId ?? inq.customerId;
         if (!lines || lines.length === 0) {
           const il = (await em.query(
             `SELECT id, part_name, qty, target_price FROM inquiry_line WHERE inquiry_id = $1 ORDER BY line_no`,

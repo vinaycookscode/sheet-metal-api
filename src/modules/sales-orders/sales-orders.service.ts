@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BlockedException } from '../../common/exceptions/blocked.exception';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import { DocSequenceService } from '../doc-sequence/doc-sequence.service';
@@ -56,6 +57,18 @@ export class SalesOrdersService {
         [quoteVersionId, s.plantId],
       )) as Array<{ id: string; quote_id: string; customer_id: string }>;
       if (!qv[0]) throw new NotFoundException('Quote version not found');
+
+      // Don't let the same quote version spawn a second sales order.
+      const existing = await em.findOne(SalesOrder, {
+        where: { quoteVersionId, plantId: s.plantId },
+      });
+      if (existing) {
+        throw new BlockedException(
+          'QUOTE_ALREADY_CONVERTED',
+          `This quote is already on sales order ${existing.number} — open it instead of creating a duplicate.`,
+          { label: `Open ${existing.number}`, link: `/sales-orders/${existing.id}` },
+        );
+      }
 
       const qLines = (await em.query(
         `SELECT id, part_name, primary_qty, unit_price, tax_code_id

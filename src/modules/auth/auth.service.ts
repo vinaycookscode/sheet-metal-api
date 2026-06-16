@@ -40,10 +40,20 @@ export class AuthService {
     );
     const permissions = perms.map((r: { code: string }) => r.code);
 
+    const roleRows = await this.db.query(
+      `SELECT DISTINCT r.code
+         FROM user_role ur
+         JOIN role r ON r.id = ur.role_id
+        WHERE ur.user_id = $1`,
+      [user.id],
+    );
+    const roles = roleRows.map((r: { code: string }) => r.code);
+
     const payload = {
       sub: user.id,
       orgId: user.org_id,
       plantId: user.default_plant_id,
+      roles,
       permissions,
     };
 
@@ -55,7 +65,7 @@ export class AuthService {
         { sub: user.id },
         { expiresIn: this.config.get('JWT_REFRESH_EXPIRES_IN', '7d') },
       ),
-      user: { id: user.id, fullName: user.full_name, orgId: user.org_id, permissions },
+      user: { id: user.id, fullName: user.full_name, orgId: user.org_id, roles, permissions },
     };
   }
 }
