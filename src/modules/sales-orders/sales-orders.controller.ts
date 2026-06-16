@@ -30,6 +30,12 @@ export class SalesOrdersController {
     return this.service.findOne(u.plantId as string, id);
   }
 
+  @Get(':id/document')
+  @RequirePermission('so.read')
+  document(@CurrentUser() u: AuthUser, @Param('id') id: string) {
+    return this.service.document(u.plantId as string, id);
+  }
+
   @Post()
   @RequirePermission('so.write')
   create(@CurrentUser() u: AuthUser, @Body() dto: CreateSalesOrderDto) {

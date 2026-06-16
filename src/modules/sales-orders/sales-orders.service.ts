@@ -6,6 +6,10 @@ import { SalesOrder } from './sales-order.entity';
 import { SoLine } from './so-line.entity';
 import { SoStatus } from '../../common/enums';
 import { CreateSalesOrderDto, FromQuoteDto, SoLineDto, SoStatusDto, UpdateSalesOrderDto } from './dto';
+import { computeLineTax, resolveTreatment } from '../../common/tax';
+import { rupeesInWords } from '../../common/amount-in-words';
+
+const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
 interface Scope {
   orgId: string;
@@ -115,6 +119,65 @@ export class SalesOrdersService {
     });
     if (!so) throw new NotFoundException('Sales order not found');
     return so;
+  }
+
+  /** Printable sales-order document (seller/buyer + GST lines + totals). */
+  async document(plantId: string, id: string): Promise<Record<string, unknown>> {
+    const head = (await this.db.query(
+      `SELECT so.number, so.order_date, so.status, so.customer_po_number, so.vendor_code,
+              o.legal_name AS org_legal, o.name AS org_name,
+              p.name AS plant_name, p.gstin AS plant_gstin, p.state_code AS plant_state, p.address AS plant_address,
+              c.name AS cust_name, c.gstin AS cust_gstin, c.state_code AS cust_state, c.billing_address AS cust_address
+         FROM sales_order so
+         JOIN plant p ON p.id = so.plant_id
+         JOIN org o ON o.id = p.org_id
+         JOIN customer c ON c.id = so.customer_id
+        WHERE so.id = $1 AND so.plant_id = $2`,
+      [id, plantId],
+    )) as Array<Record<string, unknown>>;
+    if (!head[0]) throw new NotFoundException('Sales order not found');
+    const h = head[0];
+
+    const rawLines = (await this.db.query(
+      `SELECT sl.line_no, sl.part_name, sl.qty, sl.unit_price, tc.hsn_sac, tc.gst_rate
+         FROM so_line sl LEFT JOIN tax_code tc ON tc.id = sl.tax_code_id
+        WHERE sl.sales_order_id = $1 ORDER BY sl.line_no`,
+      [id],
+    )) as Array<{ line_no: number; part_name: string; qty: string; unit_price: string; hsn_sac: string | null; gst_rate: string | null }>;
+
+    const treatment = resolveTreatment(h.plant_state as string, h.cust_state as string);
+    let subtotal = 0, cgst = 0, sgst = 0, igst = 0;
+    const lines = rawLines.map((l) => {
+      const rate = l.gst_rate ? Number(l.gst_rate) : 0;
+      const taxable = round2(Number(l.qty) * Number(l.unit_price));
+      const t = computeLineTax(taxable, rate, treatment);
+      subtotal += taxable; cgst += t.cgst; sgst += t.sgst; igst += t.igst;
+      return {
+        lineNo: l.line_no,
+        description: l.part_name,
+        hsnSac: l.hsn_sac ?? '',
+        qty: Number(l.qty),
+        unitPrice: Number(l.unit_price),
+        taxableValue: taxable,
+        gstRate: rate,
+        cgst: t.cgst, sgst: t.sgst, igst: t.igst,
+        amount: round2(taxable + t.total),
+      };
+    });
+    const grandTotal = round2(subtotal + cgst + sgst + igst);
+
+    return {
+      title: 'SALES ORDER',
+      seller: { name: (h.org_legal as string) || (h.org_name as string), plant: h.plant_name, gstin: h.plant_gstin, stateCode: h.plant_state, address: h.plant_address },
+      buyer: { name: h.cust_name, gstin: h.cust_gstin, stateCode: h.cust_state, address: h.cust_address },
+      so: { number: h.number, date: h.order_date, status: h.status, customerPo: h.customer_po_number ?? null, vendorCode: h.vendor_code ?? null, gstTreatment: treatment },
+      lines,
+      totals: {
+        subtotal: round2(subtotal), cgst: round2(cgst), sgst: round2(sgst), igst: round2(igst),
+        taxTotal: round2(cgst + sgst + igst), grandTotal,
+      },
+      amountInWords: rupeesInWords(grandTotal),
+    };
   }
 
   async update(s: Scope, id: string, dto: UpdateSalesOrderDto): Promise<SalesOrder> {
