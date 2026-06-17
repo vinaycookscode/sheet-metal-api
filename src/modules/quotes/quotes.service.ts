@@ -2,8 +2,9 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { BlockedException } from '../../common/exceptions/blocked.exception';
 import { Inquiry } from '../inquiries/inquiry.entity';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, EntityManager } from 'typeorm';
+import { DataSource, EntityManager, In } from 'typeorm';
 import { DocSequenceService } from '../doc-sequence/doc-sequence.service';
+import { SalesOrder } from '../sales-orders/sales-order.entity';
 import { Quote } from './quote.entity';
 import { QuoteVersion } from './quote-version.entity';
 import { QuoteLine } from './quote-line.entity';
@@ -115,6 +116,19 @@ export class QuotesService {
       order: { versions: { versionNo: 'ASC', lines: { lineNo: 'ASC' } } },
     });
     if (!quote) throw new NotFoundException('Quote not found');
+
+    // Surface the sales order this quote was converted into (if any), so the UI can
+    // link to it instead of offering "Create sales order" again.
+    const versionIds = (quote.versions ?? []).map((v) => v.id);
+    if (versionIds.length) {
+      const so = await (em ?? this.db).getRepository(SalesOrder).findOne({
+        where: { quoteVersionId: In(versionIds) },
+        order: { createdAt: 'ASC' },
+      });
+      if (so) {
+        (quote as Quote & { salesOrder?: { id: string; number: string } }).salesOrder = { id: so.id, number: so.number };
+      }
+    }
     return quote;
   }
 
