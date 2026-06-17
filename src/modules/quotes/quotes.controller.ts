@@ -34,12 +34,6 @@ export class QuotesController {
     return this.service.list(u.plantId as string, { status, customerId });
   }
 
-  @Get('followups')
-  @RequirePermission('quote.read')
-  followups(@CurrentUser() u: AuthUser) {
-    return this.responses.followupList(u.plantId as string);
-  }
-
   @Get(':id')
   @RequirePermission('quote.read')
   get(@CurrentUser() u: AuthUser, @Param('id') id: string) {
