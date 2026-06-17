@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AnalyticsService } from './analytics.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -23,5 +23,11 @@ export class AnalyticsController {
   @RequirePermission('so.read')
   profitability(@CurrentUser() u: AuthUser) {
     return this.service.profitability(u.plantId as string);
+  }
+
+  @Get('production')
+  @RequirePermission('mes.read')
+  production(@CurrentUser() u: AuthUser, @Query('from') from?: string, @Query('to') to?: string) {
+    return this.service.productionIntelligence(u.plantId as string, from, to);
   }
 }

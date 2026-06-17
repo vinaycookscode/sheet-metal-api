@@ -1,10 +1,13 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
+import { DataSource, IsNull } from 'typeorm';
 import { LaborEntry } from './labor-entry.entity';
-import { ClockOffDto, ClockOnDto } from './dto';
+import { DowntimeEvent } from './downtime-event.entity';
+import { BlockedException } from '../../common/exceptions/blocked.exception';
+import { ClockOffDto, ClockOnDto, StartDowntimeDto } from './dto';
 
 interface Scope {
+  orgId: string;
   plantId: string;
   userId: string;
 }
@@ -87,6 +90,46 @@ export class ProductionService {
         }
       }
       return { woOperationId: dto.woOperationId, qtyGood: dto.qtyGood, qtyScrap, opCompleted, woCompleted };
+    });
+  }
+
+  /** Start a downtime period on a work center (one open at a time). */
+  async startDowntime(s: Scope, dto: StartDowntimeDto) {
+    const repo = this.db.getRepository(DowntimeEvent);
+    const open = await repo.findOne({ where: { plantId: s.plantId, workCenterId: dto.workCenterId, endedAt: IsNull() } });
+    if (open) {
+      throw new BlockedException('DOWNTIME_OPEN', 'This work center already has an open downtime — end it before starting a new one.');
+    }
+    const ev = repo.create({
+      orgId: s.orgId,
+      plantId: s.plantId,
+      workCenterId: dto.workCenterId,
+      woOperationId: dto.woOperationId,
+      reason: dto.reason,
+      notes: dto.notes,
+      startedAt: new Date(),
+      loggedBy: s.userId,
+    });
+    return repo.save(ev);
+  }
+
+  /** End an open downtime period. */
+  async endDowntime(s: Scope, id: string) {
+    const repo = this.db.getRepository(DowntimeEvent);
+    const ev = await repo.findOne({ where: { id, plantId: s.plantId } });
+    if (!ev) throw new NotFoundException('Downtime event not found');
+    if (!ev.endedAt) {
+      ev.endedAt = new Date();
+      await repo.save(ev);
+    }
+    return ev;
+  }
+
+  /** Currently-open downtime (for the production board). */
+  openDowntime(plantId: string, workCenterId?: string) {
+    return this.db.getRepository(DowntimeEvent).find({
+      where: { plantId, endedAt: IsNull(), ...(workCenterId ? { workCenterId } : {}) },
+      order: { startedAt: 'DESC' },
     });
   }
 

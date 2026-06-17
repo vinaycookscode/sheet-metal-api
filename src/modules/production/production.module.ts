@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { LaborEntry } from './labor-entry.entity';
+import { DowntimeEvent } from './downtime-event.entity';
 import { ProductionService } from './production.service';
 import { ProductionController } from './production.controller';
 
@@ -10,7 +11,7 @@ import { ProductionController } from './production.controller';
  * updates work_order + wo_operation (planning entities) via the shared DataSource.
  */
 @Module({
-  imports: [TypeOrmModule.forFeature([LaborEntry])],
+  imports: [TypeOrmModule.forFeature([LaborEntry, DowntimeEvent])],
   controllers: [ProductionController],
   providers: [ProductionService],
   exports: [ProductionService],

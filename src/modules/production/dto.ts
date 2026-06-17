@@ -1,4 +1,21 @@
-import { IsBoolean, IsNumber, IsOptional, IsString, IsUUID, Min } from 'class-validator';
+import { IsBoolean, IsIn, IsNumber, IsOptional, IsString, IsUUID, Min } from 'class-validator';
+import { DOWNTIME_REASONS, DowntimeReason } from '../../common/enums';
+
+export class StartDowntimeDto {
+  @IsUUID()
+  workCenterId: string;
+
+  @IsIn(DOWNTIME_REASONS)
+  reason: DowntimeReason;
+
+  @IsOptional()
+  @IsUUID()
+  woOperationId?: string;
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
 
 export class ClockOnDto {
   @IsUUID()

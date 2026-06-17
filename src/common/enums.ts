@@ -56,6 +56,13 @@ export type WoStatus = (typeof WO_STATUSES)[number];
 export const OP_STATUSES = ['queued', 'in_progress', 'completed', 'skipped'] as const;
 export type OpStatus = (typeof OP_STATUSES)[number];
 
+/** Shop-floor downtime reason codes (drive OEE availability + downtime-by-reason). */
+export const DOWNTIME_REASONS = [
+  'setup', 'changeover', 'breakdown', 'maintenance', 'no_material',
+  'no_operator', 'tooling', 'quality_hold', 'power', 'other',
+] as const;
+export type DowntimeReason = (typeof DOWNTIME_REASONS)[number];
+
 export const PO_STATUSES = ['draft', 'approved', 'sent', 'acknowledged', 'partially_received', 'received', 'closed', 'cancelled'] as const;
 export type PoStatus = (typeof PO_STATUSES)[number];
 
