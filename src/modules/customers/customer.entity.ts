@@ -13,6 +13,9 @@ export class Customer extends BaseEntity {
   @Column({ type: 'text' })
   name: string;
 
+  @Column({ type: 'text', nullable: true })
+  email?: string;
+
   @Column({ type: 'varchar', length: 15, nullable: true })
   gstin?: string;
 

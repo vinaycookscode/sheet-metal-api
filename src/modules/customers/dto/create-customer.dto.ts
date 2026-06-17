@@ -1,6 +1,7 @@
 import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
+  IsEmail,
   IsInt,
   IsNumber,
   IsObject,
@@ -24,6 +25,10 @@ export class CreateCustomerDto {
 
   @IsString()
   name: string;
+
+  @IsOptional()
+  @IsEmail({}, { message: 'Invalid email address' })
+  email?: string;
 
   @IsOptional()
   @Matches(GSTIN_RE, { message: 'Invalid GSTIN format' })
