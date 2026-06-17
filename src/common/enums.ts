@@ -28,8 +28,15 @@ export type InquiryStatus = (typeof INQUIRY_STATUSES)[number];
 export const PROJECT_STATUSES = ['active', 'on_hold', 'completed', 'cancelled'] as const;
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
 
-export const QUOTE_STATUSES = ['draft', 'sent', 'accepted', 'rejected', 'expired'] as const;
+export const QUOTE_STATUSES = ['draft', 'sent', 'negotiating', 'accepted', 'rejected', 'expired'] as const;
 export type QuoteStatus = (typeof QUOTE_STATUSES)[number];
+
+/** Customer/internal response logged against a quote (negotiation timeline). */
+export const QUOTE_FOLLOWUP_KINDS = ['sent', 'accepted', 'rejected', 'negotiating', 'follow_up', 'note', 'revised'] as const;
+export type QuoteFollowupKind = (typeof QUOTE_FOLLOWUP_KINDS)[number];
+
+export const QUOTE_REJECT_REASONS = ['price', 'lead_time', 'scope', 'went_elsewhere', 'no_longer_required', 'other'] as const;
+export type QuoteRejectReason = (typeof QUOTE_REJECT_REASONS)[number];
 
 export const SO_STATUSES = ['confirmed', 'in_production', 'dispatched', 'invoiced', 'closed', 'cancelled'] as const;
 export type SoStatus = (typeof SO_STATUSES)[number];

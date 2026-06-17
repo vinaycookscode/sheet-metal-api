@@ -244,7 +244,8 @@ export class QuotesService {
 
   private static readonly ALLOWED: Record<QuoteStatus, QuoteStatus[]> = {
     draft: ['sent', 'expired'],
-    sent: ['accepted', 'rejected', 'expired'],
+    sent: ['accepted', 'rejected', 'expired', 'negotiating'],
+    negotiating: ['accepted', 'rejected', 'expired', 'sent'],
     accepted: [],
     rejected: [],
     expired: ['sent'],

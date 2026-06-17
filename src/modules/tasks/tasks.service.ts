@@ -67,27 +67,27 @@ export class TasksService {
       }
     }
 
-    // Commercial — quotes to send (draft) or chase (sent).
+    // Commercial — quotes to send (draft), negotiate, or chase (sent).
     if (can('quote.read')) {
       const quotes = await this.db.getRepository(Quote).find({
-        where: { plantId, status: In(['draft', 'sent']) },
+        where: { plantId, status: In(['draft', 'sent', 'negotiating']) },
         order: { createdAt: 'ASC' },
-        take: 25,
+        take: 30,
       });
+      const today = new Date().toISOString().slice(0, 10);
       for (const q of quotes) {
-        const isDraft = q.status === 'draft';
-        drafts.push({
-          customerId: q.customerId,
-          item: {
-            id: q.id,
-            kind: isDraft ? 'quote_draft' : 'quote_sent',
-            title: isDraft ? 'Draft quote — send it to the customer' : 'Quote sent — follow up for a decision',
-            subtitle: q.number,
-            link: `/quotes/${q.id}`,
-            actionLabel: isDraft ? 'Review & send' : 'Follow up',
-            priority: isDraft ? 'high' : 'low',
-          },
-        });
+        const dueFollowUp = !!q.nextFollowUpDate && q.nextFollowUpDate <= today;
+        let kind: string, title: string, actionLabel: string, priority: TaskPriority;
+        if (q.status === 'draft') {
+          kind = 'quote_draft'; title = 'Draft quote — send it to the customer'; actionLabel = 'Review & send'; priority = 'high';
+        } else if (q.status === 'negotiating') {
+          kind = 'quote_negotiating'; title = 'Customer is negotiating — revise & resend'; actionLabel = 'Open'; priority = 'high';
+        } else if (dueFollowUp) {
+          kind = 'quote_followup'; title = "Follow up — customer hasn't responded"; actionLabel = 'Follow up'; priority = 'high';
+        } else {
+          kind = 'quote_sent'; title = 'Quote sent — awaiting a decision'; actionLabel = 'Follow up'; priority = 'low';
+        }
+        drafts.push({ customerId: q.customerId, item: { id: q.id, kind, title, subtitle: q.number, link: `/quotes/${q.id}`, actionLabel, priority } });
       }
     }
 

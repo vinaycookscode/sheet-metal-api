@@ -27,6 +27,14 @@ export class Quote extends AuditedEntity {
   @Column({ name: 'current_version', type: 'int', default: 1 })
   currentVersion: number;
 
+  /** Unguessable token for the public customer response link (regenerated each send). */
+  @Column({ name: 'response_token', type: 'varchar', length: 64, nullable: true })
+  responseToken?: string;
+
+  /** When to chase the customer next (drives the Task Inbox); cleared on accept/reject. */
+  @Column({ name: 'next_follow_up_date', type: 'date', nullable: true })
+  nextFollowUpDate?: string;
+
   @Column({ type: 'enum', enum: QUOTE_STATUSES, enumName: 'quote_status', default: 'draft' })
   status: QuoteStatus;
 

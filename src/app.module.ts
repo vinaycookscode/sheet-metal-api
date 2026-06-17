@@ -30,6 +30,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { AdminModule } from './modules/admin/admin.module';
 import { TasksModule } from './modules/tasks/tasks.module';
 import { ProjectsModule } from './modules/projects/projects.module';
+import { PublicModule } from './modules/public/public.module';
 
 /**
  * Modular monolith — one domain module per M# in PRODUCT-PLAN.md §4.
@@ -82,6 +83,7 @@ import { ProjectsModule } from './modules/projects/projects.module';
     AdminModule,
     TasksModule,
     ProjectsModule,
+    PublicModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

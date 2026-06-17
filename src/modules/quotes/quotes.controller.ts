@@ -3,8 +3,10 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { QuotesService } from './quotes.service';
 import { QuoteDocumentService } from './quote-document.service';
 import { QuoteEmailService } from './quote-email.service';
+import { QuoteResponseService } from './quote-response.service';
 import { CreateQuoteDto, QuoteStatusDto, ReviseQuoteDto } from './dto';
 import { SendQuoteEmailDto } from './dto/send-quote-email.dto';
+import { RecordQuoteResponseDto } from './dto/record-quote-response.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { RequirePermission } from '../../common/decorators/require-permission.decorator';
@@ -19,6 +21,7 @@ export class QuotesController {
     private readonly service: QuotesService,
     private readonly docs: QuoteDocumentService,
     private readonly email: QuoteEmailService,
+    private readonly responses: QuoteResponseService,
   ) {}
 
   private scope(u: AuthUser) {
@@ -47,6 +50,18 @@ export class QuotesController {
   @RequirePermission('quote.write')
   sendEmail(@CurrentUser() u: AuthUser, @Param('id') id: string, @Body() dto: SendQuoteEmailDto) {
     return this.email.send(this.scope(u), id, dto);
+  }
+
+  @Get(':id/timeline')
+  @RequirePermission('quote.read')
+  timeline(@CurrentUser() u: AuthUser, @Param('id') id: string) {
+    return this.responses.timeline(u.plantId as string, id);
+  }
+
+  @Post(':id/respond')
+  @RequirePermission('quote.write')
+  respond(@CurrentUser() u: AuthUser, @Param('id') id: string, @Body() dto: RecordQuoteResponseDto) {
+    return this.responses.recordInternal(u.plantId as string, id, dto, u.userId);
   }
 
   @Post()
